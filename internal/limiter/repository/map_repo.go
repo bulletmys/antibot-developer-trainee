@@ -64,6 +64,7 @@ func (r *MapRepo) cleanupBlackList() {
 	}
 }
 
+// CheckBlackList проверяет, нет ли записи с данным ключом в черном списке
 func (r *MapRepo) CheckBlackList(key string) bool {
 	r.muBL.Lock()
 	timeStamp, ok := r.blackList[key]
@@ -77,7 +78,7 @@ func (r *MapRepo) CheckBlackList(key string) bool {
 }
 
 // CountAndAddRequest проверяет лимит запросов, чистит старые записи и добавляет пришедший запрос
-func (r *MapRepo) CountAndAddRequest(key string) (bool, error) {
+func (r *MapRepo) CountAndAddRequest(key string) bool {
 	r.muR.Lock()
 	defer r.muR.Unlock()
 
@@ -85,7 +86,7 @@ func (r *MapRepo) CountAndAddRequest(key string) (bool, error) {
 
 	if !ok {
 		r.requests[key] = []time.Time{time.Now().Add(r.RequestTTL)}
-		return true, nil
+		return true
 	}
 
 	currTime := time.Now()
@@ -94,25 +95,33 @@ func (r *MapRepo) CountAndAddRequest(key string) (bool, error) {
 	for _, elem := range result {
 		if currTime.After(elem) {
 			counter++
+		} else {
+			break
 		}
 	}
 
 	if len(result)-counter >= r.RequestsLimit {
-		return false, nil
+		return false
 	}
 
 	r.requests[key] = append(result[counter:], currTime.Add(r.RequestTTL))
 
-	return true, nil
+	return true
 }
 
+// AddToBlackList добавляет ключ в черный список и удаляет его из списка запросов
 func (r *MapRepo) AddToBlackList(key string) {
 	r.muBL.Lock()
 	r.blackList[key] = time.Now().Add(r.BlackListTTL)
+
+	r.muR.Lock()
 	delete(r.requests, key)
+	r.muR.Unlock()
+
 	r.muBL.Unlock()
 }
 
+// ResetLimitByPrefix удаляет все ключи с данным префиксом из черного списка и из списка запросов
 func (r *MapRepo) ResetLimitByPrefix(prefix string) {
 	go func() {
 		r.muR.Lock()
@@ -123,6 +132,7 @@ func (r *MapRepo) ResetLimitByPrefix(prefix string) {
 		}
 		r.muR.Unlock()
 	}()
+
 	r.muBL.Lock()
 	for key, _ := range r.blackList {
 		if strings.HasPrefix(key, prefix) {
@@ -132,6 +142,6 @@ func (r *MapRepo) ResetLimitByPrefix(prefix string) {
 	r.muBL.Unlock()
 }
 
-func (r * MapRepo) GetBlackListTTL() time.Duration {
+func (r *MapRepo) GetBlackListTTL() time.Duration {
 	return r.BlackListTTL
 }

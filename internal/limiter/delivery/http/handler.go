@@ -11,6 +11,8 @@ type RateHandler struct {
 	RateUC *usecase.RateUseCase
 }
 
+//Метод DELETE для сброса лимита по префиксу (передается в url в качестве параметра "prefix").
+//Остальные методы для получения статики
 func (h *RateHandler) Handler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodDelete:

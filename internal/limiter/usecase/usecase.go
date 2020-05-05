@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"antibot-trainee/internal/limiter"
-	"fmt"
 	"net"
 	"time"
 )
@@ -11,22 +10,19 @@ type RateUseCase struct {
 	RateRepo limiter.Repository
 }
 
-func (uc RateUseCase) CheckIP(addr net.IP) (bool, error) {
+func (uc RateUseCase) CheckIP(addr net.IP) bool {
 	ok := uc.RateRepo.CheckBlackList(addr.String())
 	if !ok {
-		return false, nil
+		return false
 	}
 
-	ok, err := uc.RateRepo.CountAndAddRequest(addr.String())
-	if err != nil {
-		return false, fmt.Errorf("error while counting request limit: %v", err)
-	}
+	ok = uc.RateRepo.CountAndAddRequest(addr.String())
 
 	if !ok {
 		uc.RateRepo.AddToBlackList(addr.String())
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func (uc RateUseCase) GetBlackListTTL() time.Duration {

@@ -21,6 +21,11 @@ func RunServer() {
 
 	ipv4Mask := net.CIDRMask(maskSize, 32)
 
+	limit, err := strconv.Atoi(os.Getenv("REQUEST_LIMIT"))
+	if err != nil {
+		log.Fatalf("failed to parse request limit from config: %v", err)
+	}
+
 	blTTL, err := strconv.Atoi(os.Getenv("BLACKLIST_TTL"))
 	if err != nil {
 		log.Fatalf("failed to parse black list ttl from config: %v", err)
@@ -35,7 +40,7 @@ func RunServer() {
 	rTTLDuration := time.Duration(rTTL)
 
 	rUC := &usecase.RateUseCase{
-		RateRepo: repository.NewMapRepo(100, time.Second*blTTLDuration, time.Second*rTTLDuration),
+		RateRepo: repository.NewMapRepo(limit, time.Second*blTTLDuration, time.Second*rTTLDuration),
 	}
 
 	h := middleware.RateMiddleware{
@@ -48,6 +53,7 @@ func RunServer() {
 
 	httpAddr := os.Getenv("HTTP_ADDR")
 	log.Printf("starting server at %v", httpAddr)
+
 	if err := http.ListenAndServe(httpAddr, nil); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
